@@ -1,0 +1,84 @@
+import os
+import time
+import win32com.client as win32
+
+class PowerPointHandler:
+    def __init__(self, folder_path):
+        self.folder_path = folder_path
+        self.ppt_app = win32.Dispatch("PowerPoint.Application")
+        self.ppt_app.Visible = True
+        self.presentations = []
+        self.current_presentation = None
+        self.current_index = 0  # Start at the first presentation
+        self.load_presentations()
+
+    def load_presentations(self):
+        # Load all non-temporary .pptx files in the folder
+        self.presentations = sorted(
+            [
+                os.path.join(self.folder_path, f)
+                for f in os.listdir(self.folder_path)
+                if f.endswith('.pptx') and not f.startswith('~')
+            ]
+        )
+        print(f"Loaded {len(self.presentations)} presentations.")
+
+    def start_presentation(self, index):
+        if 0 <= index < len(self.presentations):
+            file_path = self.presentations[index]
+            self.current_presentation = self.ppt_app.Presentations.Open(file_path)
+            time.sleep(1)  # Allow time to fully open
+            self.current_presentation.SlideShowSettings.Run()
+            print(f"Started presentation: {file_path}")
+
+    def close_presentation(self):
+        if self.current_presentation:
+            self.current_presentation.Close()
+            self.current_presentation = None
+
+    def advance_to_next_presentation(self):
+        if self.current_presentation:
+            try:
+                if self.ppt_app.SlideShowWindows.Count > 0:
+                    slide_show_window = self.ppt_app.SlideShowWindows(1)
+                    if slide_show_window.View.CurrentShowPosition == self.current_presentation.Slides.Count:
+                        self.close_presentation()
+                        time.sleep(1)
+                        self.current_index += 1
+                        if self.current_index < len(self.presentations):
+                            self.start_presentation(self.current_index)
+                        else:
+                            print("No more presentations left to play.")
+                else:
+                    print("No active slideshow window found.")
+            except Exception as e:
+                print(f"An error occurred: {e}")
+                
+    def close_program(self):
+        self.ppt_app.Quit()
+        print("Program closed.")
+        
+    def run(self):
+        if self.presentations:
+            self.start_presentation(self.current_index)
+            while True:
+                time.sleep(1)
+                self.advance_to_next_presentation()
+                if self.current_index >= len(self.presentations):
+                    self.close_program()
+                    break
+
+def main():
+    folder_path = os.path.join(os.path.dirname(__file__), "test")
+    ppt_handler = PowerPointHandler(folder_path)
+    
+    # Manually reload presentations if needed
+    # ppt_handler.load_presentations()
+
+    try:
+        ppt_handler.run()
+    except KeyboardInterrupt:
+        print("Presentation process interrupted.")
+
+if __name__ == "__main__":
+    main()
