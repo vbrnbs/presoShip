@@ -3,6 +3,8 @@ import time
 import win32com.client as win32
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
+import tkinter as tk
+from tkinter import messagebox
 
 class PowerPointHandler:
     def __init__(self, folder_path):
@@ -25,18 +27,32 @@ class PowerPointHandler:
         )
         print(f"Loaded {len(self.presentations)} presentations.")
 
-    def start_presentation(self, index):
+    def open_presentation(self, index):
         if 0 <= index < len(self.presentations):
             file_path = self.presentations[index]
             self.current_presentation = self.ppt_app.Presentations.Open(file_path)
             time.sleep(1)  # Allow time to fully open
+            print(f"Opened presentation: {file_path}")
+
+    def run_slideshow(self):
+        if self.current_presentation:
             self.current_presentation.SlideShowSettings.Run()
-            print(f"Started presentation: {file_path}")
+            print("Started slideshow")
 
     def close_presentation(self):
         if self.current_presentation:
             self.current_presentation.Close()
-            self.current_presentation = None
+            self.current_presentation = None 
+            print("Presentation closed.")
+
+    def show_next_popup(self, next_presentation_title):
+        # Create a simple Tkinter window to wait for permission
+        root = tk.Tk()
+        root.withdraw()  # Hide the main window
+        root.attributes("-topmost", True)  # Ensure the window is always on top
+        result = messagebox.askyesno("Next Presentation", f"Do you want to proceed to '{next_presentation_title}'?")
+        root.destroy()
+        return result
 
     def advance_to_next_presentation(self):
         if self.current_presentation:
@@ -44,25 +60,35 @@ class PowerPointHandler:
                 if self.ppt_app.SlideShowWindows.Count > 0:
                     slide_show_window = self.ppt_app.SlideShowWindows(1)
                     if slide_show_window.View.CurrentShowPosition == self.current_presentation.Slides.Count:
-                        self.close_presentation()
+                        self.close_presentation()  # Close the current presentation
                         time.sleep(1)
-                        self.current_index += 1
-                        if self.current_index < len(self.presentations):
-                            self.start_presentation(self.current_index)
+                        if self.current_index < len(self.presentations) - 1:
+                            next_presentation_title = os.path.basename(self.presentations[self.current_index + 1])
+                            if self.show_next_popup(next_presentation_title):
+                                self.current_index += 1  # Increment index only after confirmation
+                                self.open_presentation(self.current_index)
+                                self.run_slideshow()
+                            else:
+                                print("Presentation halted by user.")
+                                self.close_program()
                         else:
                             print("No more presentations left to play.")
+                            self.close_program()
                 else:
                     print("No active slideshow window found.")
+                    self.close_program()
             except Exception as e:
                 print(f"An error occurred: {e}")
-                
+
     def close_program(self):
         self.ppt_app.Quit()
         print("Program closed.")
+        exit()
         
     def run(self):
         if self.presentations:
-            self.start_presentation(self.current_index)
+            self.open_presentation(self.current_index)
+            self.run_slideshow()
             while True:
                 time.sleep(1)
                 self.advance_to_next_presentation()
