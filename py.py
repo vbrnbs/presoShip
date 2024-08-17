@@ -1,6 +1,8 @@
 import os
 import time
 import win32com.client as win32
+from watchdog.observers import Observer
+from watchdog.events import FileSystemEventHandler
 
 class PowerPointHandler:
     def __init__(self, folder_path):
@@ -68,17 +70,38 @@ class PowerPointHandler:
                     self.close_program()
                     break
 
+class IgnoreTempFilesHandler(FileSystemEventHandler):
+    def dispatch(self, event):
+        if event.src_path.startswith('~$'):
+            return
+        super().dispatch(event)
+
+class FolderSyncHandler(FileSystemEventHandler):
+    def __init__(self, power_point_handler):
+        self.power_point_handler = power_point_handler
+
+    def on_modified(self, event):
+        filename = os.path.basename(event.src_path)
+        if not filename.endswith('.pptx') or filename.startswith('~$'):
+            return
+        print(f"Detected modification in {event.src_path}")
+        time.sleep(0.5)  # Allow time for the file to be fully saved
+        self.power_point_handler.load_presentations()
+
 def main():
     folder_path = os.path.join(os.path.dirname(__file__), "test")
     ppt_handler = PowerPointHandler(folder_path)
     
-    # Manually reload presentations if needed
-    # ppt_handler.load_presentations()
+    event_handler = FolderSyncHandler(ppt_handler)
+    observer = Observer()
+    observer.schedule(event_handler, folder_path, recursive=False)
+    observer.start()
 
     try:
         ppt_handler.run()
     except KeyboardInterrupt:
-        print("Presentation process interrupted.")
+        observer.stop()
+    observer.join()
 
 if __name__ == "__main__":
     main()
