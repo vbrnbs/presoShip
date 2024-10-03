@@ -6,6 +6,12 @@ from watchdog.events import FileSystemEventHandler
 import tkinter as tk
 from tkinter import messagebox
 
+# Basic playlist style ui
+# Able to change source folder
+# Set holding slide [bg-image]
+# Deploy a portable .exe file
+# Create a server so can send/receive data from another device
+
 class PowerPointHandler:
     def __init__(self, folder_path):
         self.folder_path = folder_path
@@ -59,14 +65,14 @@ class PowerPointHandler:
             try:
                 if self.ppt_app.SlideShowWindows.Count > 0:
                     slide_show_window = self.ppt_app.SlideShowWindows(1)
-                    if slide_show_window.View.CurrentShowPosition == self.current_presentation.Slides.Count:
+                    if slide_show_window.View.CurrentShowPosition == self.current_presentation.Slides.Count + 1:
                         self.close_presentation()  # Close the current presentation
                         time.sleep(1)
                         if self.current_index < len(self.presentations) - 1:
                             next_presentation_title = os.path.basename(self.presentations[self.current_index + 1])
+                            self.current_index += 1  # Increment index only after confirmation
+                            self.open_presentation(self.current_index)
                             if self.show_next_popup(next_presentation_title):
-                                self.current_index += 1  # Increment index only after confirmation
-                                self.open_presentation(self.current_index)
                                 self.run_slideshow()
                             else:
                                 print("Presentation halted by user.")
